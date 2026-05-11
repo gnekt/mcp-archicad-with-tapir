@@ -1,0 +1,12 @@
+[project]
+name = "tapir-archicad-mcp"
+version = "0.1.0"
+description = "MCP Server for ArchiCAD via Tapir API — lets Claude create, analyze, and modify ArchiCAD projects"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]>=1.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.backends._legacy:_Backend"

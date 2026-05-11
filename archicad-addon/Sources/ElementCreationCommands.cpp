@@ -1117,3 +1117,570 @@ GS::Optional<GS::ObjectState> CreateLabelsCommand::SetTypeSpecificParameters (AP
 
     return {};
 }
+
+// ============================================================================
+// CreateWallsCommand
+// ============================================================================
+
+CreateWallsCommand::CreateWallsCommand () :
+    CreateElementsCommandBase ("CreateWalls", API_WallID, "wallsData")
+{
+}
+
+GS::Optional<GS::UniString> CreateWallsCommand::GetInputParametersSchema () const
+{
+    return R"({
+    "type": "object",
+    "properties": {
+        "wallsData": {
+            "type": "array",
+            "description": "Array of data to create Walls.",
+            "items": {
+                "type": "object",
+                "description": "The parameters of the new Wall.",
+                "properties": {
+                    "begCoordinate": {
+                        "$ref": "#/Coordinate2D",
+                        "description": "The 2D start coordinate of the wall."
+                    },
+                    "endCoordinate": {
+                        "$ref": "#/Coordinate2D",
+                        "description": "The 2D end coordinate of the wall."
+                    },
+                    "height": {
+                        "type": "number",
+                        "description": "Height of the wall in meters. Optional, uses default if not provided."
+                    },
+                    "thickness": {
+                        "type": "number",
+                        "description": "Thickness of the wall in meters. Optional, uses default if not provided."
+                    },
+                    "zCoordinate": {
+                        "type": "number",
+                        "description": "Z coordinate (elevation) of the wall base in meters. Optional, uses 0 if not provided."
+                    },
+                    "offset": {
+                        "type": "number",
+                        "description": "Offset of the wall reference line from center. Optional."
+                    },
+                    "arcAngle": {
+                        "type": "number",
+                        "description": "Arc angle in radians for curved walls. 0 means straight wall. Optional."
+                    },
+                    "floorIndex": {
+                        "type": "integer",
+                        "description": "Story index. Optional, auto-calculated from zCoordinate if not provided."
+                    }
+                },
+                "additionalProperties": false,
+                "required": [
+                    "begCoordinate",
+                    "endCoordinate"
+                ]
+            }
+        }
+    },
+    "additionalProperties": false,
+    "required": [
+        "wallsData"
+    ]
+})";
+}
+
+GS::Optional<GS::ObjectState> CreateWallsCommand::SetTypeSpecificParameters (API_Element& element, API_ElementMemo& /*memo*/, const Stories& stories, const GS::ObjectState& parameters) const
+{
+    GS::ObjectState begCoordinate, endCoordinate;
+    if (!parameters.Get ("begCoordinate", begCoordinate) || !parameters.Get ("endCoordinate", endCoordinate)) {
+        return CreateErrorResponse (APIERR_BADPARS, "begCoordinate and endCoordinate are required.");
+    }
+
+    element.wall.begC = Get2DCoordinateFromObjectState (begCoordinate);
+    element.wall.endC = Get2DCoordinateFromObjectState (endCoordinate);
+
+    double zCoordinate = 0.0;
+    if (parameters.Get ("zCoordinate", zCoordinate)) {
+        const auto floorIndexAndOffset = GetFloorIndexAndOffset (zCoordinate, stories);
+        element.header.floorInd = floorIndexAndOffset.first;
+        element.wall.bottomOffset = floorIndexAndOffset.second;
+    }
+
+    Int32 floorIndex;
+    if (parameters.Get ("floorIndex", floorIndex)) {
+        element.header.floorInd = (short)floorIndex;
+    }
+
+    parameters.Get ("height", element.wall.height);
+    parameters.Get ("thickness", element.wall.thickness);
+    parameters.Get ("offset", element.wall.offset);
+
+    double arcAngle = 0.0;
+    if (parameters.Get ("arcAngle", arcAngle) && arcAngle != 0.0) {
+        element.wall.angle = arcAngle;
+    }
+
+    return {};
+}
+
+// ============================================================================
+// CreateBeamsCommand
+// ============================================================================
+
+CreateBeamsCommand::CreateBeamsCommand () :
+    CreateElementsCommandBase ("CreateBeams", API_BeamID, "beamsData")
+{
+}
+
+GS::Optional<GS::UniString> CreateBeamsCommand::GetInputParametersSchema () const
+{
+    return R"({
+    "type": "object",
+    "properties": {
+        "beamsData": {
+            "type": "array",
+            "description": "Array of data to create Beams.",
+            "items": {
+                "type": "object",
+                "description": "The parameters of the new Beam.",
+                "properties": {
+                    "begCoordinate": {
+                        "$ref": "#/Coordinate2D",
+                        "description": "The 2D start coordinate of the beam."
+                    },
+                    "endCoordinate": {
+                        "$ref": "#/Coordinate2D",
+                        "description": "The 2D end coordinate of the beam."
+                    },
+                    "level": {
+                        "type": "number",
+                        "description": "Elevation of the beam reference axis in meters. Optional."
+                    },
+                    "offset": {
+                        "type": "number",
+                        "description": "Vertical offset. Optional."
+                    },
+                    "slantAngle": {
+                        "type": "number",
+                        "description": "Slant angle in radians. Optional."
+                    },
+                    "arcAngle": {
+                        "type": "number",
+                        "description": "Curve angle in radians. 0 means straight beam. Optional."
+                    },
+                    "floorIndex": {
+                        "type": "integer",
+                        "description": "Story index. Optional."
+                    }
+                },
+                "additionalProperties": false,
+                "required": [
+                    "begCoordinate",
+                    "endCoordinate"
+                ]
+            }
+        }
+    },
+    "additionalProperties": false,
+    "required": [
+        "beamsData"
+    ]
+})";
+}
+
+GS::Optional<GS::ObjectState> CreateBeamsCommand::SetTypeSpecificParameters (API_Element& element, API_ElementMemo& /*memo*/, const Stories& stories, const GS::ObjectState& parameters) const
+{
+    GS::ObjectState begCoordinate, endCoordinate;
+    if (!parameters.Get ("begCoordinate", begCoordinate) || !parameters.Get ("endCoordinate", endCoordinate)) {
+        return CreateErrorResponse (APIERR_BADPARS, "begCoordinate and endCoordinate are required.");
+    }
+
+    element.beam.begC = Get2DCoordinateFromObjectState (begCoordinate);
+    element.beam.endC = Get2DCoordinateFromObjectState (endCoordinate);
+
+    double level = 0.0;
+    if (parameters.Get ("level", level)) {
+        const auto floorIndexAndOffset = GetFloorIndexAndOffset (level, stories);
+        element.header.floorInd = floorIndexAndOffset.first;
+        element.beam.level = floorIndexAndOffset.second;
+    }
+
+    Int32 floorIndex;
+    if (parameters.Get ("floorIndex", floorIndex)) {
+        element.header.floorInd = (short)floorIndex;
+    }
+
+    parameters.Get ("offset", element.beam.offset);
+    parameters.Get ("slantAngle", element.beam.slantAngle);
+
+    double arcAngle = 0.0;
+    if (parameters.Get ("arcAngle", arcAngle)) {
+        element.beam.curveAngle = arcAngle;
+    }
+
+    return {};
+}
+
+// ============================================================================
+// CreateRoofsCommand (single-plane/flat roofs from polygon outline)
+// ============================================================================
+
+CreateRoofsCommand::CreateRoofsCommand () :
+    CreateElementsCommandBase ("CreateRoofs", API_RoofID, "roofsData")
+{
+}
+
+GS::Optional<GS::UniString> CreateRoofsCommand::GetInputParametersSchema () const
+{
+    return R"({
+    "type": "object",
+    "properties": {
+        "roofsData": {
+            "type": "array",
+            "description": "Array of data to create single-plane Roofs.",
+            "items": {
+                "type": "object",
+                "description": "The parameters of the new Roof.",
+                "properties": {
+                    "level": {
+                        "type": "number",
+                        "description": "The Z elevation of the roof plane in meters."
+                    },
+                    "polygonCoordinates": {
+                        "type": "array",
+                        "description": "The 2D coordinates of the roof outline.",
+                        "items": {
+                            "$ref": "#/Coordinate2D"
+                        },
+                        "minItems": 3
+                    },
+                    "polygonArcs": {
+                        "type": "array",
+                        "description": "Polygon outline arcs.",
+                        "items": {
+                            "$ref": "#/PolyArc"
+                        }
+                    },
+                    "angle": {
+                        "type": "number",
+                        "description": "Slope angle in radians. 0 means flat roof. Optional."
+                    },
+                    "thickness": {
+                        "type": "number",
+                        "description": "Thickness of the roof in meters. Optional."
+                    },
+                    "holes": {
+                        "$ref": "#/Holes2D"
+                    },
+                    "floorIndex": {
+                        "type": "integer",
+                        "description": "Story index. Optional."
+                    }
+                },
+                "additionalProperties": false,
+                "required": [
+                    "level",
+                    "polygonCoordinates"
+                ]
+            }
+        }
+    },
+    "additionalProperties": false,
+    "required": [
+        "roofsData"
+    ]
+})";
+}
+
+GS::Optional<GS::ObjectState> CreateRoofsCommand::SetTypeSpecificParameters (API_Element& element, API_ElementMemo& memo, const Stories& stories, const GS::ObjectState& parameters) const
+{
+    double inputLevel = 0.0;
+    parameters.Get ("level", inputLevel);
+    const auto floorIndexAndOffset = GetFloorIndexAndOffset (inputLevel, stories);
+    element.header.floorInd = floorIndexAndOffset.first;
+
+    Int32 floorIndex;
+    if (parameters.Get ("floorIndex", floorIndex)) {
+        element.header.floorInd = (short)floorIndex;
+    }
+
+    element.roof.roofClass = API_PlaneRoofID;
+    element.roof.u.planeRoof.level = floorIndexAndOffset.second;
+
+    double angle = 0.0;
+    parameters.Get ("angle", angle);
+    element.roof.u.planeRoof.angle = angle;
+
+    parameters.Get ("thickness", element.roof.u.planeRoof.thickness);
+
+    GS::Array<GS::ObjectState> polygonCoordinates;
+    GS::Array<GS::ObjectState> polygonArcs;
+    GS::Array<GS::ObjectState> holes;
+    parameters.Get ("polygonCoordinates", polygonCoordinates);
+    parameters.Get ("polygonArcs", polygonArcs);
+    parameters.Get ("holes", holes);
+    if (IsSame2DCoordinate (polygonCoordinates.GetFirst (), polygonCoordinates.GetLast ())) {
+        polygonCoordinates.Pop ();
+    }
+    element.roof.u.planeRoof.poly.nCoords = polygonCoordinates.GetSize () + 1;
+    element.roof.u.planeRoof.poly.nSubPolys = 1;
+    element.roof.u.planeRoof.poly.nArcs = polygonArcs.GetSize ();
+
+    for (const GS::ObjectState& hole : holes) {
+        GS::Array<GS::ObjectState> holePolygonOutline;
+        GS::Array<GS::ObjectState> holePolygonArcs;
+        if (GetHoleGeometry (hole, holePolygonOutline, holePolygonArcs)) {
+            element.roof.u.planeRoof.poly.nCoords += holePolygonOutline.GetSize () + 1;
+            ++element.roof.u.planeRoof.poly.nSubPolys;
+            element.roof.u.planeRoof.poly.nArcs += holePolygonArcs.GetSize ();
+        }
+    }
+
+    memo.coords = reinterpret_cast<API_Coord**> (BMAllocateHandle ((element.roof.u.planeRoof.poly.nCoords + 1) * sizeof (API_Coord), ALLOCATE_CLEAR, 0));
+    memo.edgeTrims = reinterpret_cast<API_EdgeTrim**> (BMAllocateHandle ((element.roof.u.planeRoof.poly.nCoords + 1) * sizeof (API_EdgeTrim), ALLOCATE_CLEAR, 0));
+    memo.sideMaterials = reinterpret_cast<API_OverriddenAttribute*> (BMAllocatePtr ((element.roof.u.planeRoof.poly.nCoords + 1) * sizeof (API_OverriddenAttribute), ALLOCATE_CLEAR, 0));
+    memo.pends = reinterpret_cast<Int32**> (BMAllocateHandle ((element.roof.u.planeRoof.poly.nSubPolys + 1) * sizeof (Int32), ALLOCATE_CLEAR, 0));
+    memo.parcs = reinterpret_cast<API_PolyArc**> (BMAllocateHandle (element.roof.u.planeRoof.poly.nArcs * sizeof (API_PolyArc), ALLOCATE_CLEAR, 0));
+
+    Int32 iCoord = 1;
+    Int32 iArc = 0;
+    Int32 iPends = 1;
+    const API_EdgeTrimID edgeTrimSideType = APIEdgeTrim_Vertical;
+    AddPolyToMemo (polygonCoordinates,
+                   polygonArcs,
+                   iCoord,
+                   iArc,
+                   iPends,
+                   memo,
+                   &edgeTrimSideType,
+                   nullptr);
+
+    for (const GS::ObjectState& hole : holes) {
+        GS::Array<GS::ObjectState> holePolygonOutline;
+        GS::Array<GS::ObjectState> holePolygonArcs;
+        if (GetHoleGeometry (hole, holePolygonOutline, holePolygonArcs)) {
+            AddPolyToMemo (holePolygonOutline,
+                           holePolygonArcs,
+                           iCoord,
+                           iArc,
+                           iPends,
+                           memo,
+                           &edgeTrimSideType,
+                           nullptr);
+        }
+    }
+
+    return {};
+}
+
+// ============================================================================
+// CreateWindowsCommand
+// ============================================================================
+
+CreateWindowsCommand::CreateWindowsCommand () :
+    CreateElementsCommandBase ("CreateWindows", API_WindowID, "windowsData")
+{
+}
+
+GS::Optional<GS::UniString> CreateWindowsCommand::GetInputParametersSchema () const
+{
+    return R"({
+    "type": "object",
+    "properties": {
+        "windowsData": {
+            "type": "array",
+            "description": "Array of data to create Windows. Windows must be placed in an existing wall.",
+            "items": {
+                "type": "object",
+                "description": "The parameters of the new Window.",
+                "properties": {
+                    "wallId": {
+                        "$ref": "#/ElementId",
+                        "description": "The GUID of the wall to place the window in. Required."
+                    },
+                    "libraryPartName": {
+                        "type": "string",
+                        "description": "The name of the window library part. Optional, uses default if not provided."
+                    },
+                    "objLocation": {
+                        "type": "number",
+                        "description": "Position along the wall reference line (0.0 = start, 1.0 = end, as a ratio). Required."
+                    },
+                    "lower": {
+                        "type": "number",
+                        "description": "Sill height — distance from floor to bottom of window in meters. Optional."
+                    },
+                    "width": {
+                        "type": "number",
+                        "description": "Width of the window opening in meters. Optional, uses library part default."
+                    },
+                    "height": {
+                        "type": "number",
+                        "description": "Height of the window opening in meters. Optional, uses library part default."
+                    }
+                },
+                "additionalProperties": false,
+                "required": [
+                    "wallId",
+                    "objLocation"
+                ]
+            }
+        }
+    },
+    "additionalProperties": false,
+    "required": [
+        "windowsData"
+    ]
+})";
+}
+
+GS::Optional<GS::ObjectState> CreateWindowsCommand::SetTypeSpecificParameters (API_Element& element, API_ElementMemo& memo, const Stories& /*stories*/, const GS::ObjectState& parameters) const
+{
+    const API_Guid wallGuid = GetGuidFromArrayItem ("wallId", parameters);
+    if (wallGuid == APINULLGuid) {
+        return CreateErrorResponse (APIERR_BADPARS, "wallId is required.");
+    }
+
+    API_Element wallElem = {};
+    wallElem.header.guid = wallGuid;
+    GSErrCode err = ACAPI_Element_Get (&wallElem);
+    if (err != NoError) {
+        return CreateErrorResponse (err, "Wall element not found.");
+    }
+
+    element.window.owner = wallGuid;
+    element.header.floorInd = wallElem.header.floorInd;
+
+    double objLocation = 0.5;
+    parameters.Get ("objLocation", objLocation);
+    element.window.objLocation = objLocation;
+
+    parameters.Get ("lower", element.window.lower);
+
+    GS::UniString libraryPartName;
+    if (parameters.Get ("libraryPartName", libraryPartName)) {
+        API_LibPart libPart = {};
+        GS::ucscpy (libPart.docu_UName, libraryPartName.ToUStr ());
+        err = ACAPI_LibraryPart_Search (&libPart, false, true);
+        delete libPart.location;
+        if (err != NoError) {
+            return CreateErrorResponse (err, GS::UniString::Printf ("Window library part '%T' not found.", libraryPartName.ToPrintf()));
+        }
+        element.window.openingBase.libInd = libPart.index;
+    }
+
+    double width = 0.0, height = 0.0;
+    if (parameters.Get ("width", width)) {
+        element.window.openingBase.width = width;
+    }
+    if (parameters.Get ("height", height)) {
+        element.window.openingBase.height = height;
+    }
+
+    return {};
+}
+
+// ============================================================================
+// CreateDoorsCommand
+// ============================================================================
+
+CreateDoorsCommand::CreateDoorsCommand () :
+    CreateElementsCommandBase ("CreateDoors", API_DoorID, "doorsData")
+{
+}
+
+GS::Optional<GS::UniString> CreateDoorsCommand::GetInputParametersSchema () const
+{
+    return R"({
+    "type": "object",
+    "properties": {
+        "doorsData": {
+            "type": "array",
+            "description": "Array of data to create Doors. Doors must be placed in an existing wall.",
+            "items": {
+                "type": "object",
+                "description": "The parameters of the new Door.",
+                "properties": {
+                    "wallId": {
+                        "$ref": "#/ElementId",
+                        "description": "The GUID of the wall to place the door in. Required."
+                    },
+                    "libraryPartName": {
+                        "type": "string",
+                        "description": "The name of the door library part. Optional, uses default if not provided."
+                    },
+                    "objLocation": {
+                        "type": "number",
+                        "description": "Position along the wall reference line (0.0 = start, 1.0 = end, as a ratio). Required."
+                    },
+                    "lower": {
+                        "type": "number",
+                        "description": "Distance from floor to bottom of door in meters. Usually 0. Optional."
+                    },
+                    "width": {
+                        "type": "number",
+                        "description": "Width of the door opening in meters. Optional, uses library part default."
+                    },
+                    "height": {
+                        "type": "number",
+                        "description": "Height of the door opening in meters. Optional, uses library part default."
+                    }
+                },
+                "additionalProperties": false,
+                "required": [
+                    "wallId",
+                    "objLocation"
+                ]
+            }
+        }
+    },
+    "additionalProperties": false,
+    "required": [
+        "doorsData"
+    ]
+})";
+}
+
+GS::Optional<GS::ObjectState> CreateDoorsCommand::SetTypeSpecificParameters (API_Element& element, API_ElementMemo& memo, const Stories& /*stories*/, const GS::ObjectState& parameters) const
+{
+    const API_Guid wallGuid = GetGuidFromArrayItem ("wallId", parameters);
+    if (wallGuid == APINULLGuid) {
+        return CreateErrorResponse (APIERR_BADPARS, "wallId is required.");
+    }
+
+    API_Element wallElem = {};
+    wallElem.header.guid = wallGuid;
+    GSErrCode err = ACAPI_Element_Get (&wallElem);
+    if (err != NoError) {
+        return CreateErrorResponse (err, "Wall element not found.");
+    }
+
+    element.door.owner = wallGuid;
+    element.header.floorInd = wallElem.header.floorInd;
+
+    double objLocation = 0.5;
+    parameters.Get ("objLocation", objLocation);
+    element.door.objLocation = objLocation;
+
+    parameters.Get ("lower", element.door.lower);
+
+    GS::UniString libraryPartName;
+    if (parameters.Get ("libraryPartName", libraryPartName)) {
+        API_LibPart libPart = {};
+        GS::ucscpy (libPart.docu_UName, libraryPartName.ToUStr ());
+        err = ACAPI_LibraryPart_Search (&libPart, false, true);
+        delete libPart.location;
+        if (err != NoError) {
+            return CreateErrorResponse (err, GS::UniString::Printf ("Door library part '%T' not found.", libraryPartName.ToPrintf()));
+        }
+        element.door.openingBase.libInd = libPart.index;
+    }
+
+    double width = 0.0, height = 0.0;
+    if (parameters.Get ("width", width)) {
+        element.door.openingBase.width = width;
+    }
+    if (parameters.Get ("height", height)) {
+        element.door.openingBase.height = height;
+    }
+
+    return {};
+}
