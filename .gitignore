@@ -138,3 +138,6 @@ grasshopper-plugin/src/test.py
 .vscode
 .lck
 /.vs
+
+# Claude Code
+CLAUDE.md
