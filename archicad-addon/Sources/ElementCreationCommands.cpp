@@ -1403,13 +1403,13 @@ GS::Optional<GS::ObjectState> CreateRoofsCommand::SetTypeSpecificParameters (API
     }
 
     element.roof.roofClass = API_PlaneRoofID;
-    element.roof.u.planeRoof.level = floorIndexAndOffset.second;
+    element.roof.shellBase.level = floorIndexAndOffset.second;
 
     double angle = 0.0;
     parameters.Get ("angle", angle);
     element.roof.u.planeRoof.angle = angle;
 
-    parameters.Get ("thickness", element.roof.u.planeRoof.thickness);
+    parameters.Get ("thickness", element.roof.shellBase.thickness);
 
     GS::Array<GS::ObjectState> polygonCoordinates;
     GS::Array<GS::ObjectState> polygonArcs;
@@ -1551,7 +1551,7 @@ GS::Optional<GS::ObjectState> CreateWindowsCommand::SetTypeSpecificParameters (A
 
     double objLocation = 0.5;
     parameters.Get ("objLocation", objLocation);
-    element.window.objLocation = objLocation;
+    element.window.objLoc = objLocation;
 
     parameters.Get ("lower", element.window.lower);
 
@@ -1658,7 +1658,7 @@ GS::Optional<GS::ObjectState> CreateDoorsCommand::SetTypeSpecificParameters (API
 
     double objLocation = 0.5;
     parameters.Get ("objLocation", objLocation);
-    element.door.objLocation = objLocation;
+    element.door.objLoc = objLocation;
 
     parameters.Get ("lower", element.door.lower);
 
