@@ -10,13 +10,13 @@ Connect Claude to ArchiCAD. Create buildings, analyze projects, find problems, m
 
 Open Claude Desktop and talk to your ArchiCAD project:
 
-- "Analizza il progetto e dimmi perche' pesa 20 giga"
-- "Quanti muri ci sono per piano?"
-- "Crea 4 muri per fare una stanza 5x4 metri"
-- "Metti una finestra al centro del muro nord"
-- "Trova gli oggetti con dimensioni anomale"
-- "Evidenzia in rosso tutti gli Object del piano 3"
-- "Esporta il progetto in IFC"
+- "Analyze the project and tell me why it weighs 20 GB"
+- "How many walls are there per floor?"
+- "Create 4 walls to make a 5x4 meter room"
+- "Place a window in the center of the north wall"
+- "Find objects with abnormal dimensions"
+- "Highlight all Objects on floor 3 in red"
+- "Export the project to IFC"
 
 Claude can see element previews, room plans, bounding boxes, and the full project structure. It has access to 109 tools covering the entire ArchiCAD API.
 
@@ -128,7 +128,7 @@ What follows is a walkthrough of everything you can do with Claude and ArchiCAD.
 The first thing to do when you connect Claude to an ArchiCAD project is to get an overview. Claude will count every element, measure the model, check libraries, and grab preview images.
 
 **You say:**
-> Dammi una panoramica completa del progetto
+> Give me a complete overview of the project
 
 Claude calls `get_project_visual_overview` and returns:
 - Project name, path, and teamwork status
@@ -147,7 +147,7 @@ This gives Claude enough context to advise you on anything.
 Large ArchiCAD projects (10-20 GB) are a common problem. Claude can diagnose the cause.
 
 **You say:**
-> Il progetto pesa 18 GB, aiutami a capire perche'
+> The project is 18 GB, help me understand why
 
 Claude calls `analyze_project_size` and then digs deeper:
 
@@ -163,14 +163,14 @@ Claude then gives you a report like:
 - "The hotlink 'Site_Model.pln' is nested 4 levels deep and appears 12 times in the project."
 
 **You say:**
-> Evidenzia in rosso gli elementi fuori scala
+> Highlight the oversized elements in red
 
 Claude calls `find_oversized_elements`, then calls `highlight_elements` with red color on the problematic elements. You see them light up in ArchiCAD's 3D view.
 
 ### Explore the project structure
 
 **You say:**
-> Quanti muri ci sono per piano?
+> How many walls are there per floor?
 
 Claude calls `get_elements_by_type` for Walls, then `get_details_of_elements` to get floor assignments, and returns a table:
 
@@ -182,12 +182,12 @@ Claude calls `get_elements_by_type` for Walls, then `get_details_of_elements` to
 | 2 (Second floor) | 195 |
 
 **You say:**
-> Mostrami i layer usati nel progetto
+> Show me all the layers in the project
 
 Claude calls `get_attributes_by_type` with "Layer" and lists all layers with their names and visibility status.
 
 **You say:**
-> Quali zone/stanze ci sono al piano terra?
+> What zones/rooms are on the ground floor?
 
 Claude calls `get_elements_by_type` for Zones, filters for floor 0, calls `get_details_of_elements` to get room names and numbers, and returns:
 
@@ -199,29 +199,29 @@ Claude calls `get_elements_by_type` for Zones, filters for floor 0, calls `get_d
 | 4 | Entrance | 004 |
 
 **You say:**
-> Fammi vedere la pianta della cucina
+> Show me the floor plan of the kitchen
 
 Claude calls `get_room_image` for the Kitchen zone and shows you a 2D plan image.
 
 ### Check element details and geometry
 
 **You say:**
-> Seleziona tutti i muri del piano terra e dimmi le loro dimensioni
+> Select all walls on the ground floor and tell me their dimensions
 
 Claude calls `get_elements_by_type` for Walls with filter `OnActualFloor`, then `get_details_of_elements`, and lists coordinates, heights, and thicknesses.
 
 **You say:**
-> Quanto e' alto l'edificio?
+> How tall is the building?
 
 Claude calls `get_3d_bounding_boxes` on all elements and calculates: "The model extends from Z = -3.20m to Z = 12.60m. Total height: 15.80m."
 
 **You say:**
-> Ci sono collisioni tra i muri e le colonne?
+> Are there any collisions between walls and columns?
 
 Claude calls `get_elements_by_type` for Walls and Columns, then calls `get_collisions` between the two groups. Returns a list of clashing pairs with their GUIDs.
 
 **You say:**
-> Mostrami una preview 3D della colonna C-12
+> Show me a 3D preview of column C-12
 
 Claude calls `get_element_preview_image` with imageType "3D" and shows you a rendered thumbnail of that specific column.
 
@@ -230,7 +230,7 @@ Claude calls `get_element_preview_image` with imageType "3D" and shows you a ren
 Claude can create architectural elements step by step.
 
 **You say:**
-> Crea una stanza rettangolare 5x4 metri al piano terra, alta 3 metri, con un solaio
+> Create a rectangular 5x4 meter room on the ground floor, 3 meters high, with a floor slab
 
 Claude does:
 1. Calls `get_stories` to find floor 0 elevation
@@ -244,49 +244,49 @@ Claude does:
 4. Returns the GUIDs of all created elements
 
 **You say:**
-> Aggiungi una porta larga 90cm sul muro sud, al centro
+> Add a 90cm wide door in the center of the south wall
 
 Claude:
 1. Knows the south wall goes from (0,0) to (5,0)
 2. Calls `create_doors` with wallId of the south wall, objLocation 0.5 (center), width 0.9, height 2.1
 
 **You say:**
-> Metti due finestre sul muro nord, simmetriche
+> Place two windows on the north wall, symmetrically
 
 Claude:
 1. Calls `create_windows` twice on the north wall, at objLocation 0.3 and 0.7, with width 1.2, height 1.5, lower (sill) 0.9
 
 **You say:**
-> Metti il tetto piatto a 3 metri
+> Add a flat roof at 3 meters
 
 Claude calls `create_roofs` with the same polygon as the slab, at level 3.0, angle 0 (flat).
 
 **You say:**
-> Adesso inclina il tetto di 15 gradi
+> Now slope the roof by 15 degrees
 
 Claude calls `create_roofs` with angle 0.26 radians (15 degrees).
 
 ### Create structural elements
 
 **You say:**
-> Aggiungi 4 colonne agli angoli della stanza
+> Add 4 columns at the corners of the room
 
 Claude calls `create_columns` with coordinates at (0,0), (5,0), (5,4), (0,4) at z=0.
 
 **You say:**
-> Collega le colonne con travi
+> Connect the columns with beams
 
 Claude calls `create_beams` between each pair of adjacent columns at the ceiling level.
 
 ### Work with properties and classifications
 
 **You say:**
-> Quali proprieta' hanno i muri del piano terra?
+> What properties do the ground floor walls have?
 
 Claude calls `get_all_properties` to discover available properties, then `get_property_values_of_elements` on the walls, and lists all custom BIM properties with their values.
 
 **You say:**
-> Imposta la proprieta' "Fire Rating" a "REI 120" su tutti i muri portanti
+> Set the "Fire Rating" property to "REI 120" on all load-bearing walls
 
 Claude:
 1. Finds the property ID for "Fire Rating"
@@ -294,60 +294,60 @@ Claude:
 3. Calls `set_property_values_of_elements` to set the value on all matching walls
 
 **You say:**
-> Quali classificazioni IFC hanno le colonne?
+> What IFC classifications do the columns have?
 
 Claude calls `get_classifications_of_elements` on the columns and lists their IFC classes (IfcColumn, IfcMember, etc.).
 
 ### Manage layers and materials
 
 **You say:**
-> Crea un nuovo layer "AI_Generated" per gli elementi che creo con Claude
+> Create a new layer called "AI_Generated" for elements I create with Claude
 
 Claude calls `create_layers` with name "AI_Generated".
 
 **You say:**
-> Elencami tutti i materiali da costruzione usati nel progetto
+> List all building materials used in the project
 
 Claude calls `get_attributes_by_type` with "BuildingMaterial" and lists all materials.
 
 **You say:**
-> Quali sono le proprieta' fisiche del calcestruzzo?
+> What are the physical properties of concrete?
 
 Claude calls `get_building_material_physical_properties` for the concrete material and returns thermal conductivity, density, heat capacity, etc.
 
 ### Work with favorites
 
 **You say:**
-> Quali preferiti ci sono per i muri?
+> What favorites are available for walls?
 
 Claude calls `get_favorites_by_type` with "Wall" and lists all saved wall configurations.
 
 **You say:**
-> Mostrami l'anteprima del preferito "Muro Esterno 38cm"
+> Show me a preview of the "Exterior Wall 38cm" favorite
 
 Claude calls `get_favorite_preview_image` and shows the thumbnail.
 
 ### Navigate and manage views
 
 **You say:**
-> Passa alla vista 3D
+> Switch to the 3D view
 
 Claude calls `change_window` with "3DModel".
 
 **You say:**
-> Zoom su tutto il modello
+> Zoom to fit the entire model
 
 Claude calls `fit_in_window`.
 
 **You say:**
-> Aggiorna tutti i disegni
+> Update all drawings
 
 Claude calls `update_drawings`.
 
 ### Highlight and select elements
 
 **You say:**
-> Evidenzia tutti gli Object del piano 2 in blu
+> Highlight all Objects on floor 2 in blue
 
 Claude:
 1. Calls `get_elements_by_type` for Object
@@ -355,7 +355,7 @@ Claude:
 3. Calls `highlight_elements` with blue RGBA [0, 100, 255, 200] for each element
 
 **You say:**
-> Seleziona tutti i muri piu' corti di 1 metro
+> Select all walls shorter than 1 meter
 
 Claude:
 1. Gets all walls
@@ -364,35 +364,35 @@ Claude:
 4. Calls `change_selection` to select only the short ones
 
 **You say:**
-> Togli l'evidenziazione
+> Clear the highlights
 
 Claude calls `highlight_elements` with an empty elements array to clear all highlights.
 
 ### Issue tracking and collaboration
 
 **You say:**
-> Crea una issue "Elementi fuori scala" e allega gli elementi problematici
+> Create an issue called "Oversized elements" and attach the problematic elements
 
 Claude:
-1. Calls `create_issue` with name "Elementi fuori scala"
+1. Calls `create_issue` with name "Oversized elements"
 2. Calls `find_oversized_elements` to get the problematic elements
 3. Calls `attach_elements_to_issue` to link them
 4. Calls `add_comment_to_issue` with a description of the problem
 
 **You say:**
-> Esporta tutte le issue in BCF
+> Export all issues to BCF
 
 Claude calls `export_issues_to_bcf` and saves a .bcf file that you can share with other BIM tools.
 
 ### Import and export
 
 **You say:**
-> Esporta il progetto in IFC
+> Export the project to IFC
 
 Claude calls `ifc_file_operation` with method "save" and a file path.
 
 **You say:**
-> Importa il modello strutturale da questo file IFC
+> Import the structural model from this IFC file
 
 Claude calls `ifc_file_operation` with method "merge" to add the IFC model to the current project.
 
@@ -401,31 +401,31 @@ Claude calls `ifc_file_operation` with method "merge" to add the IFC model to th
 If you work on a shared BIMcloud project:
 
 **You say:**
-> Ricevi le modifiche dal server
+> Receive changes from the server
 
 Claude calls `teamwork_receive`.
 
 **You say:**
-> Riserva tutti i muri del piano terra per la modifica
+> Reserve all ground floor walls for editing
 
 Claude calls `get_elements_by_type` for Walls on floor 0, then `reserve_elements`.
 
 **You say:**
-> Invia le mie modifiche
+> Send my changes
 
 Claude calls `teamwork_send`.
 
 ### Design options
 
 **You say:**
-> Quali opzioni di progetto ci sono?
+> What design options are available in the project?
 
 Claude calls `get_design_options`, `get_design_option_sets`, and `get_design_option_combinations` to show all design alternatives configured in the project.
 
 ### Real-time monitoring
 
 **You say:**
-> Avvisami quando qualcuno modifica un elemento
+> Notify me when someone modifies an element
 
 Claude calls `set_element_notification_client` to register for change notifications from ArchiCAD.
 
