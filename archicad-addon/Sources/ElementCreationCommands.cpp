@@ -1532,7 +1532,7 @@ GS::Optional<GS::UniString> CreateWindowsCommand::GetInputParametersSchema () co
 })";
 }
 
-GS::Optional<GS::ObjectState> CreateWindowsCommand::SetTypeSpecificParameters (API_Element& element, API_ElementMemo& memo, const Stories& /*stories*/, const GS::ObjectState& parameters) const
+GS::Optional<GS::ObjectState> CreateWindowsCommand::SetTypeSpecificParameters (API_Element& element, API_ElementMemo& /*memo*/, const Stories& /*stories*/, const GS::ObjectState& parameters) const
 {
     const API_Guid wallGuid = GetGuidFromArrayItem ("wallId", parameters);
     if (wallGuid == APINULLGuid) {
@@ -1639,7 +1639,7 @@ GS::Optional<GS::UniString> CreateDoorsCommand::GetInputParametersSchema () cons
 })";
 }
 
-GS::Optional<GS::ObjectState> CreateDoorsCommand::SetTypeSpecificParameters (API_Element& element, API_ElementMemo& memo, const Stories& /*stories*/, const GS::ObjectState& parameters) const
+GS::Optional<GS::ObjectState> CreateDoorsCommand::SetTypeSpecificParameters (API_Element& element, API_ElementMemo& /*memo*/, const Stories& /*stories*/, const GS::ObjectState& parameters) const
 {
     const API_Guid wallGuid = GetGuidFromArrayItem ("wallId", parameters);
     if (wallGuid == APINULLGuid) {
