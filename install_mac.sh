@@ -1,100 +1,139 @@
 #!/bin/bash
 set -e
 
-echo "============================================"
-echo "  MCP ArchiCAD with Tapir — Mac Installer"
-echo "============================================"
+echo ""
+echo "  ╔══════════════════════════════════════════╗"
+echo "  ║   MCP ArchiCAD — Installer per macOS     ║"
+echo "  ║   Claude + ArchiCAD via Tapir             ║"
+echo "  ╚══════════════════════════════════════════╝"
 echo ""
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MCP_SERVER="$SCRIPT_DIR/mcp-server/server.py"
 CLAUDE_CONFIG="$HOME/Library/Application Support/Claude/claude_desktop_config.json"
+UV_DIR="$SCRIPT_DIR/.tools"
+UV_BIN="$UV_DIR/uv"
+ADDON_DIR="$SCRIPT_DIR/.addon"
 
-# 1. Check Python
-echo "[1/4] Checking Python..."
-if ! command -v python3 &>/dev/null; then
-    echo "ERROR: Python 3 not found. Install it from https://www.python.org/downloads/"
-    exit 1
+# ── 1. Install uv (Python manager, no system Python needed) ──
+echo "[1/5] Installazione runtime Python (uv)..."
+if [ -f "$UV_BIN" ]; then
+    echo "  Gia' installato."
+else
+    mkdir -p "$UV_DIR"
+    curl -sSfL https://astral.sh/uv/install.sh | env INSTALLER_NO_MODIFY_PATH=1 UV_INSTALL_DIR="$UV_DIR" sh 2>&1 | tail -1
+    if [ ! -f "$UV_BIN" ]; then
+        echo "  ERRORE: impossibile scaricare uv. Controlla la connessione internet."
+        exit 1
+    fi
+    echo "  Installato."
 fi
-PYVER=$(python3 --version)
-echo "  Found $PYVER"
 
-# 2. Install MCP dependencies
+# ── 2. Install MCP dependencies via uv ──
 echo ""
-echo "[2/4] Installing MCP server dependencies..."
+echo "[2/5] Installazione dipendenze MCP server..."
 cd "$SCRIPT_DIR/mcp-server"
-pip3 install -e . --quiet 2>&1 | tail -3
-echo "  Done."
+"$UV_BIN" pip install --quiet -e . --python "$("$UV_BIN" python find 2>/dev/null || "$UV_BIN" python install 3.12 --quiet && "$UV_BIN" python find)" 2>&1 | tail -3
+echo "  Fatto."
 
-# 3. Configure Claude Desktop
+# ── 3. Configure Claude Desktop ──
 echo ""
-echo "[3/4] Configuring Claude Desktop..."
-PYTHON_PATH=$(which python3)
+echo "[3/5] Configurazione Claude Desktop..."
+UV_RUN="$UV_BIN"
+JSON_CMD="$UV_RUN"
+JSON_ARGS="run --with mcp[cli] python $MCP_SERVER"
 
 mkdir -p "$(dirname "$CLAUDE_CONFIG")"
 
 if [ -f "$CLAUDE_CONFIG" ]; then
     if grep -q "tapir-archicad" "$CLAUDE_CONFIG" 2>/dev/null; then
-        echo "  Already configured in Claude Desktop."
+        echo "  Gia' configurato."
     else
-        echo "  Claude Desktop config exists — adding tapir-archicad server."
-        python3 -c "
+        "$UV_BIN" run --with mcp[cli] python -c "
 import json, sys
-config_path = sys.argv[1]
-python_path = sys.argv[2]
-server_path = sys.argv[3]
-with open(config_path) as f:
-    config = json.load(f)
-if 'mcpServers' not in config:
-    config['mcpServers'] = {}
-config['mcpServers']['tapir-archicad'] = {
-    'command': python_path,
-    'args': [server_path]
+p = '$CLAUDE_CONFIG'
+c = json.load(open(p))
+c.setdefault('mcpServers', {})
+c['mcpServers']['tapir-archicad'] = {
+    'command': '$UV_RUN',
+    'args': 'run --with mcp[cli] python $MCP_SERVER'.split()
 }
-with open(config_path, 'w') as f:
-    json.dump(config, f, indent=2)
-print('  Added tapir-archicad to Claude Desktop config.')
-" "$CLAUDE_CONFIG" "$PYTHON_PATH" "$MCP_SERVER"
+json.dump(c, open(p, 'w'), indent=2)
+print('  Aggiunto a Claude Desktop.')
+" 2>/dev/null || echo "  ATTENZIONE: non riesco a modificare il config. Configuralo manualmente."
     fi
 else
     cat > "$CLAUDE_CONFIG" << JSONEOF
 {
   "mcpServers": {
     "tapir-archicad": {
-      "command": "$PYTHON_PATH",
-      "args": ["$MCP_SERVER"]
+      "command": "$UV_RUN",
+      "args": ["run", "--with", "mcp[cli]", "python", "$MCP_SERVER"]
     }
   }
 }
 JSONEOF
-    echo "  Created Claude Desktop config with tapir-archicad server."
+    echo "  Configurazione creata."
 fi
 
-# 4. ArchiCAD Add-On instructions
+# ── 4. Download ArchiCAD Add-On ──
 echo ""
-echo "[4/4] ArchiCAD Add-On"
+echo "[4/5] Download Add-On ArchiCAD..."
 echo ""
-echo "  Download the Tapir Add-On for your ArchiCAD version:"
+echo "  Quale versione di ArchiCAD usi?"
 echo ""
-echo "    AC25: https://github.com/gnekt/mcp-archicad-with-tapir/releases/latest/download/TapirAddOn_AC25_Mac.zip"
-echo "    AC26: https://github.com/gnekt/mcp-archicad-with-tapir/releases/latest/download/TapirAddOn_AC26_Mac.zip"
-echo "    AC27: https://github.com/gnekt/mcp-archicad-with-tapir/releases/latest/download/TapirAddOn_AC27_Mac.zip"
-echo "    AC28: https://github.com/gnekt/mcp-archicad-with-tapir/releases/latest/download/TapirAddOn_AC28_Mac.zip"
-echo "    AC29: https://github.com/gnekt/mcp-archicad-with-tapir/releases/latest/download/TapirAddOn_AC29_Mac.zip"
+echo "    1) ArchiCAD 25"
+echo "    2) ArchiCAD 26"
+echo "    3) ArchiCAD 27"
+echo "    4) ArchiCAD 28"
+echo "    5) ArchiCAD 29"
+echo "    0) Salta (lo scarico dopo)"
 echo ""
-echo "  Install in ArchiCAD:"
-echo "    1. Unzip the downloaded file"
-echo "    2. In ArchiCAD: Options > Add-On Manager"
-echo "    3. Click 'Edit List of Available Add-Ons' tab"
-echo "    4. Click 'Add' and browse to the .bundle file"
-echo "    5. Click OK"
+read -p "  Scegli [1-5, 0 per saltare]: " AC_CHOICE
+
+AC_VERSION=""
+case "$AC_CHOICE" in
+    1) AC_VERSION=25 ;;
+    2) AC_VERSION=26 ;;
+    3) AC_VERSION=27 ;;
+    4) AC_VERSION=28 ;;
+    5) AC_VERSION=29 ;;
+    *) echo "  Saltato. Potrai scaricarlo dopo da GitHub Releases." ;;
+esac
+
+if [ -n "$AC_VERSION" ]; then
+    ADDON_URL="https://github.com/gnekt/mcp-archicad-with-tapir/releases/latest/download/TapirAddOn_AC${AC_VERSION}_Mac.zip"
+    ADDON_ZIP="$ADDON_DIR/TapirAddOn_AC${AC_VERSION}_Mac.zip"
+    mkdir -p "$ADDON_DIR"
+    echo "  Scaricamento Add-On per ArchiCAD $AC_VERSION..."
+    if curl -sSfL -o "$ADDON_ZIP" "$ADDON_URL" 2>/dev/null; then
+        cd "$ADDON_DIR"
+        unzip -qo "$ADDON_ZIP" 2>/dev/null
+        echo "  Scaricato in: $ADDON_DIR/"
+        echo ""
+        echo "  Per installare in ArchiCAD:"
+        echo "    1. Apri ArchiCAD"
+        echo "    2. Vai in Options > Add-On Manager"
+        echo "    3. Tab 'Edit List of Available Add-Ons'"
+        echo "    4. Clicca 'Add' e seleziona il file .bundle in:"
+        echo "       $ADDON_DIR/"
+        echo "    5. Clicca OK"
+    else
+        echo "  Non riesco a scaricare — probabilmente la release non esiste ancora."
+        echo "  Scaricalo manualmente da: https://github.com/gnekt/mcp-archicad-with-tapir/releases"
+    fi
+fi
+
+# ── 5. Done ──
 echo ""
-echo "============================================"
-echo "  Installation complete!"
+echo "  ╔══════════════════════════════════════════╗"
+echo "  ║         Installazione completata!         ║"
+echo "  ╠══════════════════════════════════════════╣"
+echo "  ║                                           ║"
+echo "  ║  1. Installa l'Add-On in ArchiCAD         ║"
+echo "  ║  2. Apri un progetto in ArchiCAD          ║"
+echo "  ║  3. Apri Claude Desktop                   ║"
+echo "  ║  4. Chiedi: 'Analizza il mio progetto'    ║"
+echo "  ║                                           ║"
+echo "  ╚══════════════════════════════════════════╝"
 echo ""
-echo "  Next steps:"
-echo "    1. Install the ArchiCAD Add-On (see above)"
-echo "    2. Open ArchiCAD with a project"
-echo "    3. Open Claude Desktop"
-echo "    4. Ask Claude: 'Analizza il mio progetto ArchiCAD'"
-echo "============================================"

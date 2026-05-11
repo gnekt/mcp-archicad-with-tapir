@@ -141,3 +141,7 @@ grasshopper-plugin/src/test.py
 
 # Claude Code
 CLAUDE.md
+
+# Installer artifacts
+.tools/
+.addon/
